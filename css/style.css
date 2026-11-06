@@ -343,13 +343,21 @@ body {
 .filter-row.minor {
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0;
+  margin-bottom: 4px;
   font-size: 12.5px;
   color: var(--ink-2);
 }
 
+.src-note {
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0.5px;
+}
+
 .major-toggle { display: flex; align-items: center; gap: 5px; cursor: pointer; letter-spacing: 1px; }
 .major-toggle input { accent-color: var(--red); cursor: pointer; }
+
+.chip.dim { opacity: 0.35; pointer-events: none; }
 
 #countInfo { letter-spacing: 1px; color: var(--ink-3); }
 
@@ -456,6 +464,28 @@ body {
   background: var(--gold);
   border-radius: 2px;
 }
+
+.card-src {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(139, 124, 94, 0.35);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-3);
+}
+
+.card-src .src-label {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 2px;
+  margin-right: 8px;
+  padding: 0 5px;
+  color: #f6ecd6;
+  background: var(--ink-3);
+  border-radius: 2px;
+}
+
+.card-src .src-item { display: block; }
 
 .empty-cards {
   text-align: center;

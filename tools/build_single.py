@@ -20,6 +20,7 @@ def main():
     css = read("css", "style.css")
     land = read("js", "land.js")
     data = read("js", "data.js")
+    sources = read("js", "sources.js")
     app = read("js", "app.js")
 
     html = html.replace(
@@ -33,6 +34,10 @@ def main():
     html = html.replace(
         '<script src="js/data.js"></script>',
         "<script>\n" + data + "\n</script>",
+    )
+    html = html.replace(
+        '<script src="js/sources.js"></script>',
+        "<script>\n" + sources + "\n</script>",
     )
     html = html.replace(
         '<script src="js/app.js"></script>',

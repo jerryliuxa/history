@@ -29,6 +29,7 @@ var state = {
   year: -221,
   vb: { x: 0, y: 0, w: WORLD_W, h: WORLD_H },
   view: 'world',
+  scope: 'world',  // 'world' 世界全览 | 'china' 只看中国史
   regionSel: {},   // {} -> 全部；否则按 name->true
   catSel: {},
   majorOnly: false,
@@ -161,12 +162,44 @@ function viewPreset(name) {
 }
 
 function applyView(name, instant) {
+  var scope = name === 'china' ? 'china' : 'world';
+  var scopeChanged = scope !== state.scope;
   state.view = name;
+  state.scope = scope;
+
+  // 切换视角范围时，重置区域筛选并同步书签状态
+  if (scopeChanged) {
+    state.regionSel = scope === 'china' ? { china: true } : {};
+    syncChips();
+  }
+  updateRegionChipDim();
+
   var p = viewPreset(name);
   flyTo(p.cx, p.cy, p.w, instant);
   var btns = $('viewSwitch').querySelectorAll('button');
   for (var i = 0; i < btns.length; i++)
     btns[i].classList.toggle('active', btns[i].getAttribute('data-view') === name);
+
+  if (scopeChanged) setYear(state.year, { silentAnim: true });
+}
+
+function syncChips() {
+  var rows = [['regionFilters', state.regionSel], ['catFilters', state.catSel]];
+  for (var r = 0; r < rows.length; r++) {
+    var chips = $(rows[r][0]).querySelectorAll('.chip');
+    for (var i = 0; i < chips.length; i++) {
+      var k = chips[i].getAttribute('data-k');
+      chips[i].classList.toggle('on', !!rows[r][1][k]);
+    }
+  }
+}
+
+function updateRegionChipDim() {
+  var chips = $('regionFilters').querySelectorAll('.chip');
+  for (var i = 0; i < chips.length; i++) {
+    var k = chips[i].getAttribute('data-k');
+    chips[i].classList.toggle('dim', state.scope === 'china' && k !== 'china');
+  }
 }
 
 function flyTo(cx, cy, w, instant) {
@@ -208,6 +241,8 @@ function shortYear(y) { return y < 0 ? '前' + (-y) : '' + y; }
 function evEnd(ev) { return ev.y2 !== undefined ? ev.y2 : ev.y + (LINGER[ev.imp] || 20); }
 
 function passFilter(ev) {
+  // 「中国」视角：硬性只显示中国史事件，不受区域筛选影响
+  if (state.scope === 'china' && ev.region !== 'china') return false;
   if (state.majorOnly && ev.imp !== 3) return false;
   var hasRegion = false, hitRegion = false;
   for (var r in state.regionSel) { hasRegion = true; if (state.regionSel[r]) hitRegion = true; }
@@ -296,6 +331,19 @@ function updateBanner() {
 }
 
 /* ---------- 册页卡片 ---------- */
+function srcHTML(ev) {
+  var items = (typeof SOURCES !== 'undefined' && SOURCES[ev.id]) || [['tb', '']];
+  var parts = [];
+  for (var i = 0; i < items.length; i++) {
+    var book = SRC_BOOKS[items[i][0]] || '课外拓展';
+    var theme = items[i][1];
+    parts.push(theme ? book + ' · ' + theme : book);
+  }
+  var body = '';
+  for (var j = 0; j < parts.length; j++) body += '<span class="src-item">' + parts[j] + '</span>';
+  return '<div class="card-src"><span class="src-label">出处</span>' + body + '</div>';
+}
+
 function cardHTML(ev) {
   var isCN = ev.region === 'china';
   var span = ev.y2 !== undefined ? formatYear(ev.y) + ' — ' + formatYear(ev.y2) : formatYear(ev.y);
@@ -309,6 +357,7 @@ function cardHTML(ev) {
     '</div>' +
     '<div class="card-desc">' + ev.desc + '</div>' +
     '<div class="card-tip">' + ev.tip + '</div>' +
+    srcHTML(ev) +
   '</div>';
 }
 
