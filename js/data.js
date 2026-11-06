@@ -684,3 +684,25 @@ var EVENTS = [
     desc: '甘地领导的非暴力不合作运动终获成果，英国结束对印度近两百年的殖民统治。',
     tip: '甘地一生倡导和平抗争，人们尊称他「圣雄」。' }
 ];
+
+/* ---------- 月份标注（公历；仅收录史实月份可靠者，用于时间轴精确定位） ---------- */
+var EVENT_MONTHS = {
+  humen: 6, yapian: 6, 'nanjing-tiaoyue': 8, taiping: 3, yuanmingyuan: 10,
+  jiawu: 7, maguan: 4, wuxu: 6, baguo: 6, feikeju: 9,
+  xinhai: 10, minguo: 1, wusi: 5, cpc: 7, beifa: 7, nanchang: 8,
+  jiuyiba: 9, zunyi: 1, lugou: 7, 'nj-massacre': 12, taierzhuang: 4,
+  baituan: 8, 'kz-shengli': 8, guodian: 10,
+  caesar: 3, pompeii: 8, charlemagne: 12, 'magna-carta': 6,
+  independence: 7, bastille: 7, napoleon: 12, waterloo: 6, loco: 9,
+  origin: 11, gettysburg: 1, suez: 11, telephone: 3, edison: 10,
+  benz: 1, cinema: 12, nobel: 12, wright: 12, titanic: 4,
+  ww1: 7, october: 11, versailles: 6, depression: 10, hitler: 1,
+  ww2: 9, 'pearl-harbor': 12, stalingrad: 7, normandy: 6, 'ww2-end': 8,
+  'united-nations': 10, 'india-indep': 8,
+  columbus: 10, gama: 5, luther: 10, magellan: 9, aztec: 8
+};
+(function () {
+  var idx = {};
+  for (var i = 0; i < EVENTS.length; i++) idx[EVENTS[i].id] = EVENTS[i];
+  for (var id in EVENT_MONTHS) if (idx[id]) idx[id].m = EVENT_MONTHS[id];
+})();

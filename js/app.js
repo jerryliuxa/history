@@ -346,7 +346,7 @@ function srcHTML(ev) {
 
 function cardHTML(ev) {
   var isCN = ev.region === 'china';
-  var span = ev.y2 !== undefined ? formatYear(ev.y) + ' — ' + formatYear(ev.y2) : formatYear(ev.y);
+  var span = ev.y2 !== undefined ? evDate(ev) + ' — ' + formatYear(ev.y2) : evDate(ev);
   return '<div class="card' + (isCN ? '' : ' world') + (ev.id === state.selectedId ? ' selected' : '') + '" data-id="' + ev.id + '">' +
     '<div class="card-title">' + ev.title + '</div>' +
     '<div class="card-meta">' +
@@ -506,10 +506,23 @@ function hoverMove(e) {
 function hideTip() { tooltip.classList.remove('show'); }
 
 /* ---------- 卷轴时间轴 ---------- */
-var TL = { pad: 10, innerW: 0, cursor: null, cursorBox: null, cursorText: null };
+var TL = { pad: 10, innerW: 0, cursor: null, cursorBox: null, cursorText: null,
+           y1: YEAR_MIN, y2: YEAR_MAX };   // y1/y2 = 当前缩放窗口
 
-function tlX(year) {
-  return TL.pad + (year - YEAR_MIN) / (YEAR_MAX - YEAR_MIN) * TL.innerW;
+function tlSpan() { return TL.y2 - TL.y1; }
+function tlX(year) { return TL.pad + (year - TL.y1) / tlSpan() * TL.innerW; }
+function tlYearAt(x) { return TL.y1 + (x - TL.pad) / TL.innerW * tlSpan(); }
+/* 有月份的事件在年内按月偏移定位 */
+function fracYear(ev) { return ev.m ? ev.y + (ev.m - 0.5) / 12 : ev.y; }
+
+function evById(id) {
+  for (var i = 0; i < EVENTS.length; i++) if (EVENTS[i].id === id) return EVENTS[i];
+  return null;
+}
+
+function evDate(ev) {
+  if (!ev.m) return formatYear(ev.y);
+  return formatYear(ev.y).replace(' 年', ' 年 ' + ev.m + ' 月');
 }
 
 function drawTimeline() {
@@ -523,59 +536,94 @@ function drawTimeline() {
   // 纸底
   el('rect', { x: 0, y: 0, width: w, height: h, rx: 3, fill: '#ece1c5', stroke: '#8b7c5e', 'stroke-width': 1 }, root);
 
-  // 世界时代带
+  // 世界时代带（按当前窗口裁剪）
   var gEra = el('g', {}, root);
   WORLD_ERAS.forEach(function (e, i) {
-    var x1 = tlX(e.y1), x2 = tlX(e.y2);
-    var r = el('rect', { x: x1, y: 12, width: x2 - x1, height: 24, fill: ERA_COLORS[i % ERA_COLORS.length],
-                         stroke: '#ece1c5', 'stroke-width': 1 }, gEra);
-    r.style.cursor = 'pointer';
-    r.addEventListener('click', function () { jumpToYear(e.y1 + Math.max(2, (e.y2 - e.y1) * 0.2)); });
-    addBandLabel(gEra, (x1 + x2) / 2, 24, e.n, x2 - x1, '#f3ead4', 62);
+    drawBand(gEra, e.y1, e.y2, 12, 24, ERA_COLORS[i % ERA_COLORS.length], e.n, 62);
   });
 
   // 中国朝代带
   var gDyn = el('g', {}, root);
   DYNASTIES.forEach(function (d, i) {
-    var x1 = tlX(d.y1), x2 = tlX(d.y2);
-    var r = el('rect', { x: x1, y: 42, width: x2 - x1, height: 26, fill: DYN_COLORS[i % DYN_COLORS.length],
-                         stroke: '#ece1c5', 'stroke-width': 1 }, gDyn);
-    r.style.cursor = 'pointer';
-    r.addEventListener('click', function () { jumpToYear(d.y1 + Math.max(1, (d.y2 - d.y1) * 0.25)); });
-    addBandLabel(gDyn, (x1 + x2) / 2, 55, d.n, x2 - x1, '#f3ead4', 26);
+    drawBand(gDyn, d.y1, d.y2, 42, 26, DYN_COLORS[i % DYN_COLORS.length], d.n, 26);
   });
 
-  // 事件圆点
+  // 事件圆点（有月份的按月偏移；附加透明热区便于悬停/点击）
   var gDots = el('g', {}, root);
   EVENTS.forEach(function (ev) {
-    el('circle', { cx: tlX(ev.y), cy: 80, r: ev.imp === 3 ? 3 : 2.2,
+    var fy = fracYear(ev);
+    if (fy < TL.y1 || fy > TL.y2) return;
+    var x = tlX(fy);
+    if (x < TL.pad - 4 || x > TL.pad + TL.innerW + 4) return;
+    el('circle', { cx: x, cy: 80, r: ev.imp === 3 ? 3 : 2.2,
                    fill: ev.region === 'china' ? DOT_COLOR.china : DOT_COLOR.other,
                    opacity: 0.45, class: 'tl-dot', 'data-id': ev.id }, gDots);
+    el('circle', { cx: x, cy: 80, r: 7, fill: 'transparent', class: 'tl-hit', 'data-id': ev.id }, gDots);
   });
 
-  // 主轴线与刻度
+  // 主轴线与自适应刻度
   el('line', { x1: TL.pad, y1: 98, x2: w - TL.pad, y2: 98, stroke: '#5c5240', 'stroke-width': 1.5 }, root);
-  var step = TL.innerW > 900 ? 500 : 250;
-  for (var y = Math.ceil(YEAR_MIN / 100) * 100; y <= YEAR_MAX; y += 100) {
-    var isMajor = (y % step === 0);
+  var span = tlSpan();
+  // 从细到粗，取第一个间距 ≥ 90px 的步长
+  var steps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000];
+  var step = 1000;
+  for (var s = 0; s < steps.length; s++) {
+    if (TL.innerW * steps[s] / span >= 90) { step = steps[s]; break; }
+  }
+  var minor = Math.max(step / 5, 1);
+  var y0 = Math.ceil(TL.y1 / minor) * minor;
+  for (var y = y0; y <= TL.y2 + 0.001; y += minor) {
+    var isMajor = Math.abs(y / step - Math.round(y / step)) < 1e-9;
     el('line', { x1: tlX(y), y1: 98, x2: tlX(y), y2: isMajor ? 106 : 102,
                  stroke: '#5c5240', 'stroke-width': isMajor ? 1.4 : 0.8, opacity: isMajor ? 0.9 : 0.5 }, root);
     if (isMajor) {
       var t = el('text', { x: tlX(y), y: 120, 'font-size': 11, fill: '#5c5240', 'text-anchor': 'middle',
                            'letter-spacing': 1 }, root);
-      t.textContent = shortYear(y);
+      t.textContent = shortYear(Math.round(y));
     }
   }
 
-  // 游标
+  // 月份刻度（足够放大时显示；1/4/7/10 月标注数字）
+  var pxPerYear = TL.innerW / span;
+  if (pxPerYear >= 110) {
+    var yA = Math.floor(TL.y1), yB = Math.ceil(TL.y2);
+    for (var yy = yA; yy <= yB; yy++) {
+      for (var mm = 1; mm <= 12; mm++) {
+        var fy = yy + (mm - 0.5) / 12;
+        if (fy < TL.y1 || fy > TL.y2) continue;
+        el('line', { x1: tlX(fy), y1: 98, x2: tlX(fy), y2: 101.5,
+                     stroke: '#8b7c5e', 'stroke-width': 0.7 }, root);
+        if (pxPerYear >= 260 && (mm === 1 || mm === 4 || mm === 7 || mm === 10)) {
+          var mt = el('text', { x: tlX(fy), y: 111, 'font-size': 9, fill: '#8b7c5e',
+                                'text-anchor': 'middle' }, root);
+          mt.textContent = mm;
+        }
+      }
+    }
+  }
+
+  // 游标（最后绘制，保证置顶；红框可拖动选年）
   var gCur = el('g', { class: 'tl-cursor' }, root);
   TL.cursor = el('line', { y1: 8, y2: 134, stroke: '#9e2b25', 'stroke-width': 2 }, gCur);
   TL.cursorBox = el('rect', { y: 122, width: 66, height: 27, rx: 3, fill: '#9e2b25',
                               stroke: '#f3e6cf', 'stroke-width': 1.6 }, gCur);
+  TL.cursorBox.style.cursor = 'grab';
   TL.cursorText = el('text', { y: 140, 'font-size': 14, 'font-weight': 'bold', fill: '#f6ecd6',
                                'text-anchor': 'middle', 'letter-spacing': 1 }, gCur);
 
-  updateTimelineCursor();
+  updateTimelineCursor(visibleEvents(state.year));
+}
+
+/* 在当前窗口内绘制一条时代/朝代色带（带点击跳转） */
+function drawBand(g, by1, by2, y, hh, color, label, minLabelW) {
+  var x1 = Math.max(tlX(by1), TL.pad), x2 = Math.min(tlX(by2), TL.pad + TL.innerW);
+  if (x2 - x1 < 1.5) return;
+  var r = el('rect', { x: x1, y: y, width: x2 - x1, height: hh, fill: color,
+                       stroke: '#ece1c5', 'stroke-width': 1 }, g);
+  r.style.cursor = 'pointer';
+  var mid = (Math.max(by1, TL.y1) + Math.min(by2, TL.y2)) / 2;
+  r.addEventListener('click', function () { jumpToYear(mid); });
+  addBandLabel(g, (x1 + x2) / 2, y + hh / 2, label, x2 - x1, '#f3ead4', minLabelW);
 }
 
 function addBandLabel(g, x, y, text, width, color, min) {
@@ -589,7 +637,9 @@ function updateTimelineCursor(vis) {
   if (!TL.cursor) return;
   if (!vis) vis = [];
   var x = tlX(state.year);
-  TL.cursor.setAttribute('x1', x); TL.cursor.setAttribute('x2', x);
+  // 年份在缩放窗口外时，游标线钳制在可视范围内（手柄仍贴边显示年份）
+  var cx = Math.min(Math.max(x, TL.pad), TL.pad + TL.innerW);
+  TL.cursor.setAttribute('x1', cx); TL.cursor.setAttribute('x2', cx);
   var bx = Math.min(Math.max(x - 33, TL.pad - 6), TL.pad + TL.innerW - 60);
   TL.cursorBox.setAttribute('x', bx);
   TL.cursorText.setAttribute('x', bx + 33);
@@ -605,23 +655,138 @@ function updateTimelineCursor(vis) {
   }
 }
 
-function jumpToYear(y) { setYear(y); }
+function jumpToYear(y) { setYear(y); ensureVisible(y); }
+
+/* 若年份不在当前缩放窗口内或贴边，则平移窗口使其可见 */
+function ensureVisible(y) {
+  var span = tlSpan();
+  if (y < TL.y1 || y > TL.y2) {
+    var ny1 = Math.min(Math.max(y - span / 2, YEAR_MIN), YEAR_MAX - span);
+    TL.y1 = ny1; TL.y2 = ny1 + span;
+    drawTimeline();
+    return;
+  }
+  if (state.playing) {
+    var m = span * 0.1;
+    if (y > TL.y2 - m) {
+      TL.y1 = Math.min(Math.max(y - span * 0.9, YEAR_MIN), YEAR_MAX - span);
+      TL.y2 = TL.y1 + span;
+      drawTimeline();
+    } else if (y < TL.y1 + m) {
+      TL.y1 = Math.max(y - span * 0.1, YEAR_MIN);
+      TL.y2 = TL.y1 + span;
+      drawTimeline();
+    }
+  }
+}
+
+function tlPanBy(dy) {
+  var span = tlSpan();
+  var ny1 = Math.min(Math.max(TL.y1 + dy, YEAR_MIN), YEAR_MAX - span);
+  if (ny1 === TL.y1) return;
+  TL.y1 = ny1; TL.y2 = ny1 + span;
+  drawTimeline();
+}
+
+/* 时间轴悬停冒泡 */
+var tlTip = null;
+function ensureTlTip() {
+  if (tlTip) return tlTip;
+  tlTip = document.createElement('div');
+  tlTip.className = 'tl-tip';
+  timelineSvg.parentNode.appendChild(tlTip);
+  return tlTip;
+}
+function hideTlTip() { if (tlTip) tlTip.classList.remove('show'); }
+function tlHover(e) {
+  var hit = e.target.closest ? e.target.closest('.tl-hit') : null;
+  if (!hit) { hideTlTip(); return; }
+  var ev = evById(hit.getAttribute('data-id'));
+  if (!ev) return;
+  var tip = ensureTlTip();
+  var sr = timelineSvg.getBoundingClientRect();
+  var mr = timelineSvg.parentNode.getBoundingClientRect();
+  var x = sr.left - mr.left + parseFloat(hit.getAttribute('cx'));
+  var y = sr.top - mr.top + 80;
+  tip.innerHTML = '<b>' + ev.title + '</b><span>' + evDate(ev) + ' · ' + ev.tag + '</span>';
+  tip.style.left = x + 'px';
+  tip.style.top = (y - 9) + 'px';
+  tip.classList.add('show');
+}
+
+function tlReset() { TL.y1 = YEAR_MIN; TL.y2 = YEAR_MAX; drawTimeline(); hideTlTip(); }
 
 (function bindTimeline() {
-  var down = false;
-  function setFromEvent(e) {
-    var r = timelineSvg.getBoundingClientRect();
-    var x = e.clientX - r.left - TL.pad;
-    var y = YEAR_MIN + x / TL.innerW * (YEAR_MAX - YEAR_MIN);
-    setYear(Math.round(y));
+  var mode = null, moved = 0, sx = 0, lastX = 0, downHit = null;
+
+  function inHandle(x, y) {
+    if (!TL.cursorBox) return false;
+    var bx = parseFloat(TL.cursorBox.getAttribute('x'));
+    return y >= 116 && y <= 152 && x >= bx - 8 && x <= bx + 74;
   }
+
   timelineSvg.addEventListener('pointerdown', function (e) {
-    down = true;
-    timelineSvg.setPointerCapture(e.pointerId);
-    setFromEvent(e);
+    var r = timelineSvg.getBoundingClientRect();
+    var x = e.clientX - r.left, y = e.clientY - r.top;
+    downHit = e.target.closest ? e.target.closest('.tl-hit') : null;
+    mode = inHandle(x, y) ? 'scrub' : 'pan';
+    moved = 0; sx = e.clientX; lastX = x;
+    try { timelineSvg.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件等无活动指针时忽略 */ }
+    timelineSvg.classList.add('dragging');
+    if (mode === 'scrub') setYear(tlYearAt(x));
+    hideTlTip();
   });
-  timelineSvg.addEventListener('pointermove', function (e) { if (down) setFromEvent(e); });
-  timelineSvg.addEventListener('pointerup', function () { down = false; });
+
+  timelineSvg.addEventListener('pointermove', function (e) {
+    if (!mode) { tlHover(e); return; }
+    var r = timelineSvg.getBoundingClientRect();
+    var x = e.clientX - r.left;
+    moved = Math.max(moved, Math.abs(e.clientX - sx));
+    if (mode === 'scrub') {
+      setYear(tlYearAt(x));
+    } else if (moved > 3) {
+      tlPanBy((lastX - x) / TL.innerW * tlSpan());
+      hideTlTip();
+    }
+    lastX = x;
+  });
+
+  timelineSvg.addEventListener('pointerup', function (e) {
+    if (!mode) return;
+    var wasMode = mode, wasHit = downHit;
+    mode = null; downHit = null;
+    timelineSvg.classList.remove('dragging');
+    if (moved >= 4) return;
+    if (wasMode === 'scrub') return;
+    // 单击：点到圆点 → 跳到该事件并选中；点到空白 → 选年
+    if (wasHit) {
+      var id = wasHit.getAttribute('data-id');
+      var ev = evById(id);
+      if (ev) { setYear(ev.y); selectEvent(id); }
+      return;
+    }
+    var r = timelineSvg.getBoundingClientRect();
+    var x = e.clientX - r.left;
+    if (x >= TL.pad - 2 && x <= TL.pad + TL.innerW + 2) setYear(Math.round(tlYearAt(x)));
+  });
+
+  timelineSvg.addEventListener('pointerleave', function () { if (!mode) hideTlTip(); });
+
+  timelineSvg.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    hideTlTip();
+    var r = timelineSvg.getBoundingClientRect();
+    var yAt = tlYearAt(e.clientX - r.left);
+    var f = Math.exp(e.deltaY * 0.0012);
+    var span = Math.min(Math.max(tlSpan() * f, 2), YEAR_MAX - YEAR_MIN);
+    var ratio = (yAt - TL.y1) / tlSpan();
+    var ny1 = Math.min(Math.max(yAt - ratio * span, YEAR_MIN), YEAR_MAX - span);
+    TL.y1 = ny1; TL.y2 = ny1 + span;
+    drawTimeline();
+  }, { passive: false });
+
+  timelineSvg.addEventListener('dblclick', tlReset);
+  $('tlReset').addEventListener('click', tlReset);
 
   $('prevEvent').addEventListener('click', stepEvent(-1));
   $('nextEvent').addEventListener('click', stepEvent(1));
@@ -636,7 +801,7 @@ function stepEvent(dir) {
     var cur = state.year, target = null;
     if (dir > 0) { for (var i = 0; i < years.length; i++) if (years[i] > cur + 0.5) { target = years[i]; break; } }
     else { for (var j = years.length - 1; j >= 0; j--) if (years[j] < cur - 0.5) { target = years[j]; break; } }
-    if (target !== null) setYear(target);
+    if (target !== null) jumpToYear(target);
     else if (dir > 0) togglePlay(false);
   };
 }
@@ -662,6 +827,7 @@ function playLoop(ts) {
   var y = state.year + dt * 30;   // 每秒约 30 年
   if (y >= YEAR_MAX) { setYear(YEAR_MAX); togglePlay(false); return; }
   setYear(y, { silentAnim: false });
+  ensureVisible(y);
   requestAnimationFrame(playLoop);
 }
 
