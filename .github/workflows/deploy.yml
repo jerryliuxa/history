@@ -1,8 +1,8 @@
 name: Deploy to GitHub Pages
 
+# Pages 开通后（Settings → Pages）此工作流负责部署；
+# 若选用 "Deploy from a branch" 模式，可删除本文件。
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
