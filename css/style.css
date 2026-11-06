@@ -50,11 +50,118 @@ body {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
   padding: 2px 6px;
 }
 
-.brand { display: flex; align-items: center; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+
+/* ---- 搜索 ---- */
+.search-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 150px;
+  max-width: 440px;
+}
+
+#searchInput {
+  width: 100%;
+  font-family: var(--font-kai);
+  font-size: 14px;
+  letter-spacing: 1px;
+  padding: 7px 14px;
+  color: #f0e5c9;
+  background: rgba(20, 22, 17, 0.45);
+  border: 1px solid #8a7c5d;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+#searchInput::placeholder { color: #8f846b; }
+
+#searchInput:focus { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(176, 138, 62, 0.4); }
+
+.search-drop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: linear-gradient(180deg, #f6efdb, #eee3c6);
+  border: 1px solid var(--ink-3);
+  border-radius: 4px;
+  box-shadow: 3px 5px 18px rgba(0, 0, 0, 0.45);
+  max-height: 400px;
+  overflow-y: auto;
+  display: none;
+  z-index: 60;
+  color: var(--ink);
+}
+
+.search-drop.show { display: block; }
+
+.search-head {
+  padding: 7px 12px 2px;
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 2px;
+}
+
+.search-jump {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13.5px;
+  letter-spacing: 1px;
+  border-bottom: 1px dashed rgba(139, 124, 94, 0.4);
+}
+
+.search-jump .sj-ico { color: var(--red); font-weight: bold; }
+
+.search-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(139, 124, 94, 0.18);
+}
+
+.search-jump:hover, .search-jump.active,
+.search-item:hover, .search-item.active { background: rgba(158, 43, 37, 0.1); }
+
+.search-item .si-title { font-size: 14.5px; font-weight: 700; letter-spacing: 1px; }
+
+.search-item .si-title mark {
+  background: none;
+  color: var(--red);
+  border-bottom: 2px solid var(--red);
+  padding: 0;
+}
+
+.search-item .si-meta {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-top: 2px;
+  letter-spacing: 1px;
+}
+
+.search-item .si-desc {
+  font-size: 12.5px;
+  color: #6b6152;
+  margin-top: 3px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.search-none {
+  padding: 16px;
+  text-align: center;
+  color: var(--ink-3);
+  letter-spacing: 2px;
+  font-size: 13px;
+}
 
 .seal {
   width: 46px; height: 46px;

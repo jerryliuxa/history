@@ -147,9 +147,13 @@ function setVB(vb) {
   var h = w / a;
   var x = vb.x + vb.w / 2 - w / 2;   // 保持中心
   var y = vb.y + vb.h / 2 - h / 2;
+  // 视野比世界高时垂直居中画心，否则钳制在容许范围内
+  var ny;
+  if (h >= WORLD_H) ny = (WORLD_H - h) / 2;
+  else ny = Math.min(Math.max(y, -220), WORLD_H - h + 220);
   state.vb = {
     x: Math.min(Math.max(x, -160), WORLD_W - w + 160),
-    y: Math.min(Math.max(y, -220), WORLD_H - h + 220),
+    y: ny,
     w: w, h: h
   };
   mapSvg.setAttribute('viewBox', state.vb.x + ' ' + state.vb.y + ' ' + w + ' ' + h);
@@ -394,12 +398,8 @@ function selectEvent(id) {
   renderCards(visibleEvents(state.year));
   var sel2 = cardsEl.querySelector('.card.selected');
   if (sel2) sel2.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  // 若远离视野中心，平移过去
-  var cx = state.vb.x + state.vb.w / 2, cy = state.vb.y + state.vb.h / 2;
-  var dx = Math.abs(m.x - cx), dy = Math.abs(m.y - cy);
-  if (dx > state.vb.w * 0.38 || dy > state.vb.h * 0.38) {
-    flyTo(m.x, m.y, Math.min(state.vb.w, 1100), false);
-  }
+  // 显式选中（卡片/搜索/圆点）总是飞行聚焦到事件处
+  flyTo(m.x, m.y, Math.min(state.vb.w, 1100), false);
 }
 
 function clearSelection() {
@@ -862,6 +862,192 @@ function buildFilters() {
   });
 }
 
+/* ---------- 模糊搜索 ---------- */
+var searchInput = $('searchInput'), searchDrop = $('searchDrop');
+var searchItems = [], searchActive = -1, searchTimer = null, SEARCH_HAY = null;
+
+function searchHay() {
+  if (!SEARCH_HAY) {
+    SEARCH_HAY = EVENTS.map(function (ev) {
+      return {
+        ev: ev,
+        dense: (ev.title + ev.desc + ev.tip + ev.tag + (REGION_NAMES[ev.region] || '') +
+                formatYear(ev.y) + shortYear(ev.y) + (ev.y < 0 ? '前' + (-ev.y) : '')).replace(/\s+/g, '')
+      };
+    });
+  }
+  return SEARCH_HAY;
+}
+
+function isSubseq(q, s) {
+  var i = 0;
+  for (var j = 0; j < s.length && i < q.length; j++) if (s[j] === q[i]) i++;
+  return i === q.length;
+}
+
+/* 词元解析：年份 / 朝代·时代区间 / 普通文本 */
+function parseToken(tok) {
+  var m = tok.match(/^(?:公元前|前)\s*(\d{1,4})\s*年?$/);
+  if (m) {
+    var yBc = -parseInt(m[1], 10);
+    if (yBc >= YEAR_MIN && yBc <= YEAR_MAX) return { kind: 'year', y: yBc, label: tok };
+  }
+  m = tok.match(/^(\d{1,4})\s*年$/);
+  if (m) {
+    var yCe = parseInt(m[1], 10);
+    if (yCe >= 1 && yCe <= YEAR_MAX) return { kind: 'year', y: yCe, label: tok };
+  }
+  if (/^\d{1,4}$/.test(tok)) {
+    var n = parseInt(tok, 10);
+    if (n >= 1 && n <= YEAR_MAX) return { kind: 'year', y: n, label: tok };
+    if (n > YEAR_MAX && n <= 3000) return { kind: 'year', y: -n, label: tok };
+  }
+  var strip = tok.replace(/(朝|代|时期|时代)$/, '');
+  if (strip) {
+    for (var i = 0; i < DYNASTIES.length; i++) {
+      if (DYNASTIES[i].n.indexOf(strip) === 0 || strip.indexOf(DYNASTIES[i].n) === 0)
+        return { kind: 'range', y1: DYNASTIES[i].y1, y2: DYNASTIES[i].y2, label: DYNASTIES[i].n };
+    }
+    for (var j = 0; j < WORLD_ERAS.length; j++) {
+      if (WORLD_ERAS[j].n.indexOf(strip) !== -1)
+        return { kind: 'range', y1: WORLD_ERAS[j].y1, y2: WORLD_ERAS[j].y2, label: WORLD_ERAS[j].n };
+    }
+  }
+  return { kind: 'text', q: tok };
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function hlTitle(title, tokens) {
+  var out = escHtml(title);
+  tokens.forEach(function (t) {
+    if (t.length < 1) return;
+    var i = title.indexOf(t);
+    if (i !== -1) {
+      var escT = escHtml(title.slice(i, i + t.length));
+      out = out.replace(escT, '<mark>' + escT + '</mark>');
+    }
+  });
+  return out;
+}
+
+function doSearch(raw) {
+  var q = (raw || '').trim().toLowerCase();
+  if (!q) { hideSearch(); return; }
+  var tokens = q.split(/[\s,，、]+/).filter(Boolean);
+  var jumps = [], jumpSeen = {};
+  var events = searchHay().filter(function (h) {
+    var ok = true;
+    for (var i = 0; i < tokens.length && ok; i++) {
+      var tk = parseToken(tokens[i]);
+      if (tk.kind === 'year') {
+        if (!jumpSeen[tk.label]) { jumpSeen[tk.label] = 1; jumps.push(tk); }
+        ok = h.ev.y === tk.y || (h.ev.y <= tk.y && tk.y <= evEnd(h.ev));
+      } else if (tk.kind === 'range') {
+        if (!jumpSeen[tk.label]) { jumpSeen[tk.label] = 1; jumps.push(tk); }
+        ok = h.ev.y >= tk.y1 && h.ev.y <= tk.y2;
+      } else {
+        var t = tk.q;
+        ok = h.dense.indexOf(t) !== -1 || isSubseq(t, h.ev.title.toLowerCase());
+      }
+    }
+    return ok;
+  });
+  events.sort(function (a, b) { return (b.ev.imp - a.ev.imp) || (a.ev.y - b.ev.y); });
+
+  searchItems = [];
+  var html = '';
+  jumps.forEach(function (j) {
+    var idx = searchItems.length;
+    searchItems.push({ kind: 'jump', j: j });
+    var sub = j.kind === 'year'
+      ? '把时间轴跳到 ' + formatYear(j.y)
+      : '缩放到 ' + j.label + '（' + shortYear(j.y1) + ' ~ ' + shortYear(j.y2) + '）';
+    html += '<div class="search-jump" data-i="' + idx + '"><span class="sj-ico">➤</span>' + escHtml(sub) + '</div>';
+  });
+  if (events.length)
+    html += '<div class="search-head">事件 · ' + events.length + (events.length > 15 ? '（显示前 15）' : '') + '</div>';
+  events.slice(0, 15).forEach(function (h) {
+    var idx = searchItems.length;
+    searchItems.push({ kind: 'event', ev: h.ev });
+    html += '<div class="search-item" data-i="' + idx + '">' +
+      '<div class="si-title">' + hlTitle(h.ev.title, tokens) + '</div>' +
+      '<div class="si-meta">' + evDate(h.ev) + ' · ' + escHtml(h.ev.tag) + ' · ' + (REGION_NAMES[h.ev.region] || '') + '</div>' +
+      '<div class="si-desc">' + escHtml(h.ev.desc) + '</div></div>';
+  });
+  if (!searchItems.length) html = '<div class="search-none">未找到相关的事件、年份或朝代</div>';
+  searchDrop.innerHTML = html;
+  searchDrop.classList.add('show');
+  searchActive = -1;
+}
+
+function hideSearch() {
+  searchDrop.classList.remove('show');
+  searchDrop.innerHTML = '';
+  searchItems = [];
+  searchActive = -1;
+}
+
+function pickSearch(i) {
+  var it = searchItems[i];
+  if (!it) return;
+  hideSearch();
+  searchInput.blur();
+  if (it.kind === 'jump') {
+    var j = it.j;
+    if (j.kind === 'year') { jumpToYear(j.y); }
+    else {
+      var y1 = Math.max(YEAR_MIN, j.y1 - 10), y2 = Math.min(YEAR_MAX, j.y2 + 10);
+      if (y2 - y1 < 2) y2 = Math.min(y1 + 2, YEAR_MAX);
+      TL.y1 = y1; TL.y2 = y2;
+      drawTimeline();
+      setYear((j.y1 + j.y2) / 2);
+    }
+  } else {
+    if (state.scope === 'china' && it.ev.region !== 'china') applyView('world', false);
+    setYear(it.ev.y);
+    ensureVisible(it.ev.y);
+    selectEvent(it.ev.id);
+  }
+}
+
+(function bindSearch() {
+  searchInput.addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    var v = searchInput.value;
+    searchTimer = setTimeout(function () { doSearch(v); }, 140);
+  });
+
+  searchInput.addEventListener('keydown', function (e) {
+    var n = searchItems.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!n) return;
+      searchActive = (searchActive + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      var els = searchDrop.querySelectorAll('.search-jump, .search-item');
+      for (var i = 0; i < els.length; i++) els[i].classList.toggle('active', i === searchActive);
+      if (els[searchActive]) els[searchActive].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      pickSearch(searchActive >= 0 ? searchActive : 0);
+    } else if (e.key === 'Escape') {
+      hideSearch();
+      searchInput.blur();
+    }
+  });
+
+  searchDrop.addEventListener('pointerdown', function (e) {
+    var el = e.target.closest ? e.target.closest('.search-jump, .search-item') : null;
+    if (el) { e.preventDefault(); pickSearch(parseInt(el.getAttribute('data-i'), 10)); }
+  });
+
+  document.addEventListener('pointerdown', function (e) {
+    if (!e.target.closest || !e.target.closest('.search-wrap')) hideSearch();
+  });
+})();
+
 /* ---------- 罗盘装饰 ---------- */
 function buildCompass() {
   var d = document.createElement('div');
@@ -875,6 +1061,13 @@ function buildCompass() {
 
 /* ---------- 键盘 ---------- */
 document.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+    return;
+  }
+  if (document.activeElement === searchInput || document.activeElement.tagName === 'INPUT') return;
   if (e.key === 'ArrowLeft') stepEvent(-1)();
   else if (e.key === 'ArrowRight') stepEvent(1)();
   else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
@@ -892,6 +1085,9 @@ window.addEventListener('resize', function () {
 });
 
 /* ---------- 启动 ---------- */
+// 调试出口（不影响功能；便于控制台排查）
+window.__qiu = { state: state, TL: TL, doSearch: doSearch, setYear: setYear, selectEvent: selectEvent, jumpToYear: jumpToYear };
+
 buildLand();
 buildGraticule();
 buildMarkers();

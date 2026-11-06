@@ -4,6 +4,7 @@
 用法: python -I tools/build_single.py <输出路径>
 """
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,26 +24,17 @@ def main():
     sources = read("js", "sources.js")
     app = read("js", "app.js")
 
-    html = html.replace(
-        '<link rel="stylesheet" href="css/style.css">',
-        "<style>\n" + css + "\n</style>",
-    )
-    html = html.replace(
-        '<script src="js/land.js"></script>',
-        "<script>\n" + land + "\n</script>",
-    )
-    html = html.replace(
-        '<script src="js/data.js"></script>',
-        "<script>\n" + data + "\n</script>",
-    )
-    html = html.replace(
-        '<script src="js/sources.js"></script>',
-        "<script>\n" + sources + "\n</script>",
-    )
-    html = html.replace(
-        '<script src="js/app.js"></script>',
-        "<script>\n" + app + "\n</script>",
-    )
+    # 兼容带版本参数的引用（如 href="css/style.css?v=15"）
+    html = re.sub(r'<link rel="stylesheet" href="css/style\.css[^"]*">',
+                  lambda _: "<style>\n" + css + "\n</style>", html)
+    html = re.sub(r'<script src="js/land\.js[^"]*"></script>',
+                  lambda _: "<script>\n" + land + "\n</script>", html)
+    html = re.sub(r'<script src="js/data\.js[^"]*"></script>',
+                  lambda _: "<script>\n" + data + "\n</script>", html)
+    html = re.sub(r'<script src="js/sources\.js[^"]*"></script>',
+                  lambda _: "<script>\n" + sources + "\n</script>", html)
+    html = re.sub(r'<script src="js/app\.js[^"]*"></script>',
+                  lambda _: "<script>\n" + app + "\n</script>", html)
     for token in ('<link rel="stylesheet"', '<script src='):
         if token in html:
             raise SystemExit("仍有未内联的外部引用: " + token)
