@@ -1,0 +1,532 @@
+/* ============================================================
+ * 千秋图 · 古风样式
+ * 宣纸、水墨、朱砂印、卷轴装裱 —— 全部由代码生成，无图片资源
+ * ============================================================ */
+
+:root {
+  --silk: #2f332b;            /* 底绸 */
+  --mount: #6a5b45;           /* 装裱绫绢 */
+  --mount-dark: #574a37;
+  --paper: #ece1c5;           /* 宣纸画心 */
+  --paper-2: #e3d5b4;
+  --ink: #2e2a23;             /* 浓墨 */
+  --ink-2: #5c5240;           /* 淡墨 */
+  --ink-3: #8b7c5e;           /* 枯墨 */
+  --red: #9e2b25;             /* 朱砂 */
+  --red-deep: #7c201b;
+  --indigo: #3d566e;          /* 墨青 */
+  --gold: #b08a3e;            /* 泥金 */
+  --font-kai: "Kaiti SC", "STKaiti", "KaiTi", "楷体", "Noto Serif SC",
+              "Source Han Serif SC", "SimSun", serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-kai);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,250,230,0.06), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0 2px, transparent 2px 5px),
+    var(--silk);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.frame {
+  height: 100vh;
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ============ 顶部题字 ============ */
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.seal {
+  width: 46px; height: 46px;
+  background: linear-gradient(160deg, #a8352c, var(--red-deep));
+  color: #f3e6cf;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; line-height: 1.05; letter-spacing: 2px;
+  writing-mode: vertical-rl;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.45), inset 0 0 0 1.5px rgba(243,230,207,0.75);
+  user-select: none;
+}
+
+.brand-text h1 {
+  font-size: 26px;
+  letter-spacing: 10px;
+  color: #efe4c8;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+.brand-text p {
+  font-size: 12.5px;
+  color: #b3a888;
+  letter-spacing: 4px;
+  margin-top: 1px;
+}
+
+.topbar-actions { display: flex; align-items: center; gap: 14px; }
+
+.switch {
+  display: flex;
+  border: 1px solid #8a7c5d;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(20, 22, 17, 0.4);
+}
+
+.switch button {
+  font-family: inherit;
+  font-size: 14.5px;
+  letter-spacing: 3px;
+  padding: 6px 16px;
+  color: #c8bb96;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.switch button.active {
+  background: linear-gradient(180deg, #a8352c, #8a2822);
+  color: #f5ead2;
+}
+
+.btn-play {
+  font-family: inherit;
+  font-size: 14.5px;
+  letter-spacing: 2px;
+  padding: 7px 18px;
+  color: #f0e5c9;
+  background: linear-gradient(180deg, #4a5142, #39402f);
+  border: 1px solid #8a7c5d;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.btn-play:hover { filter: brightness(1.15); }
+.btn-play.playing { background: linear-gradient(180deg, #a8352c, #8a2822); }
+
+/* ============ 中部布局 ============ */
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 10px;
+}
+
+/* ---- 装裱舆图 ---- */
+.mount {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: 4px;
+  padding: 12px;
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 3px, transparent 3px 6px),
+    linear-gradient(180deg, var(--mount), var(--mount-dark));
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 226, 190, 0.35),
+    inset 0 0 0 5px rgba(46, 42, 35, 0.18),
+    0 6px 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+}
+
+.map-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(46, 42, 35, 0.55), 0 2px 10px rgba(0,0,0,0.35);
+  background: var(--paper);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.map-wrap.dragging { cursor: grabbing; }
+
+#map { width: 100%; height: 100%; display: block; }
+
+#map .paper { fill: var(--paper); }
+#map .grain { opacity: 0.16; mix-blend-mode: multiply; pointer-events: none; }
+
+/* ---- 年份题签 ---- */
+.banner {
+  position: absolute;
+  top: 14px; left: 14px;
+  background: linear-gradient(180deg, #f4ecd8, #ece0c4);
+  border: 1px solid var(--ink-3);
+  border-left: 4px solid var(--red);
+  border-radius: 3px;
+  padding: 8px 16px 9px 12px;
+  box-shadow: 2px 3px 10px rgba(0,0,0,0.25);
+  pointer-events: none;
+  min-width: 180px;
+}
+
+.banner-year {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.banner-meta {
+  font-size: 13px;
+  color: var(--ink-2);
+  letter-spacing: 2px;
+  margin-top: 2px;
+}
+
+.banner-meta .dyn-tag {
+  display: inline-block;
+  background: var(--red);
+  color: #f3e6cf;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 2px;
+  margin-right: 6px;
+}
+
+/* ---- 地图控制钮 ---- */
+.map-ctrl {
+  position: absolute;
+  right: 12px; bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-ctrl button {
+  width: 34px; height: 34px;
+  font-family: inherit;
+  font-size: 17px;
+  color: var(--ink);
+  background: linear-gradient(180deg, #f4ecd8, #e6d9ba);
+  border: 1px solid var(--ink-3);
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 1px 2px 6px rgba(0,0,0,0.3);
+}
+
+.map-ctrl button:hover { background: #f8f1de; }
+
+/* ---- 悬浮提示 ---- */
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(46, 42, 35, 0.94);
+  color: #f0e5c9;
+  font-size: 13px;
+  letter-spacing: 1px;
+  padding: 5px 11px;
+  border-radius: 3px;
+  border: 1px solid rgba(176, 138, 62, 0.7);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 14px));
+  transition: opacity .15s;
+  z-index: 5;
+}
+
+.tooltip.show { opacity: 1; }
+
+/* ---- 地图内的标记 ---- */
+.marker {
+  cursor: pointer;
+  transition: opacity .35s;
+}
+
+.marker .dot { stroke: #efe4c8; stroke-width: 2.4; }
+.marker .sealbox { stroke: #efe4c8; stroke-width: 2; }
+
+.marker text {
+  font-family: var(--font-kai);
+  fill: #f6ecd6;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.marker.hidden { opacity: 0; pointer-events: none; }
+
+/* pop 动画作用于内层 g，避免覆盖外层的 translate/scale 属性变换 */
+.marker.pop .marker-inner { animation: markerPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+
+@keyframes markerPop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+/* transform-origin 需要按标记自身处理：g 已 translate，动画用内层 g */
+.marker-inner { transform-box: fill-box; transform-origin: center; }
+
+.marker.selected .halo { display: block; }
+
+.marker .halo {
+  display: none;
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 2.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: haloPulse 1.6s ease-out infinite;
+}
+
+@keyframes haloPulse {
+  0%   { transform: scale(0.7); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* ============ 册页（右侧） ============ */
+.booklet {
+  flex: 0 0 330px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: linear-gradient(180deg, #f1e7cd, #e9dcb9);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(46,42,35,.5), inset 0 0 0 1px rgba(255,255,255,.4), 0 6px 24px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+
+.filters {
+  padding: 10px 12px 8px;
+  border-bottom: 1px dashed var(--ink-3);
+  background: rgba(255, 250, 235, 0.45);
+}
+
+.filter-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+
+.chip {
+  font-family: inherit;
+  font-size: 12.5px;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.chip:hover { background: rgba(158, 43, 37, 0.08); }
+
+.chip.on {
+  background: var(--red);
+  border-color: var(--red-deep);
+  color: #f6ecd6;
+}
+
+.filter-row.minor {
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.major-toggle { display: flex; align-items: center; gap: 5px; cursor: pointer; letter-spacing: 1px; }
+.major-toggle input { accent-color: var(--red); cursor: pointer; }
+
+#countInfo { letter-spacing: 1px; color: var(--ink-3); }
+
+.cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-3) transparent;
+}
+
+.cards::-webkit-scrollbar { width: 7px; }
+.cards::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 4px; }
+
+.card {
+  position: relative;
+  background: linear-gradient(180deg, #f6efdb, #efe4c8);
+  border: 1px solid var(--ink-3);
+  border-radius: 3px;
+  padding: 10px 12px 10px 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: box-shadow .2s, transform .2s, border-color .2s;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 3px;
+  background: var(--red);
+  border-radius: 2px;
+}
+
+.card.world::before { background: var(--indigo); }
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 2px 3px 10px rgba(60, 45, 20, 0.3);
+}
+
+.card.selected {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1.5px var(--red), 2px 3px 12px rgba(158, 43, 37, 0.35);
+}
+
+.card-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 5px 0 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+  letter-spacing: 1px;
+}
+
+.card-meta .m-tag {
+  padding: 1px 7px;
+  border-radius: 2px;
+  font-size: 11.5px;
+  background: rgba(158, 43, 37, 0.1);
+  border: 1px solid rgba(158, 43, 37, 0.35);
+  color: var(--red-deep);
+}
+
+.card-meta .m-tag.w {
+  background: rgba(61, 86, 110, 0.1);
+  border-color: rgba(61, 86, 110, 0.4);
+  color: var(--indigo);
+}
+
+.card-desc {
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #4c4436;
+}
+
+.card-tip {
+  margin-top: 7px;
+  padding: 6px 9px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #7c5a1e;
+  background: rgba(176, 138, 62, 0.1);
+  border: 1px dashed rgba(176, 138, 62, 0.55);
+  border-radius: 3px;
+}
+
+.card-tip::before {
+  content: "贴士";
+  font-size: 11px;
+  letter-spacing: 2px;
+  margin-right: 7px;
+  padding: 0 5px;
+  color: #f6ecd6;
+  background: var(--gold);
+  border-radius: 2px;
+}
+
+.empty-cards {
+  text-align: center;
+  color: var(--ink-3);
+  letter-spacing: 3px;
+  padding: 40px 0 30px;
+  font-size: 14px;
+}
+
+.empty-cards .sub { font-size: 12px; letter-spacing: 2px; margin-top: 8px; opacity: .8; }
+
+/* ============ 底部卷轴 ============ */
+.scroll-area {
+  flex: 0 0 196px;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.tl-btns {
+  flex: 0 0 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tl-btns button {
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 1px;
+  padding: 8px 4px;
+  color: #f0e5c9;
+  background: linear-gradient(180deg, #4a5142, #39402f);
+  border: 1px solid #8a7c5d;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tl-btns button:hover { filter: brightness(1.2); }
+
+.scroll-mount {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--mount), var(--mount-dark));
+  box-shadow: inset 0 0 0 1px rgba(240, 226, 190, 0.35), 0 4px 16px rgba(0, 0, 0, 0.45);
+  padding: 10px 26px;
+}
+
+#timeline {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* 时间轴内部元素样式由 JS 设置填充色，这里统一字体 */
+#timeline text {
+  font-family: var(--font-kai);
+  user-select: none;
+}
+
+/* ============ 响应式（基础） ============ */
+@media (max-width: 1100px) {
+  body { overflow: auto; }
+  .frame { height: auto; }
+  .stage { flex-direction: column; }
+  .map-wrap { min-height: 380px; }
+  .booklet { flex: none; }
+  .cards { max-height: 300px; }
+}

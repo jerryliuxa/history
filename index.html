@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>千秋图 · 古风历史舆图</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 共享 SVG 滤镜（纸纹 / 墨晕） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="fx-grain" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.38  0 0 0 0 0.32  0 0 0 0 0.24  0 0 0 0.55 0"/>
+    </filter>
+    <filter id="fx-inkbleed" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#4a4032" flood-opacity="0.45"/>
+    </filter>
+    <filter id="fx-softedge" x="-5%" y="-5%" width="110%" height="110%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="frame">
+
+  <!-- ======== 顶部：题字与控制 ======== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="seal">千秋</div>
+      <div class="brand-text">
+        <h1>千秋图</h1>
+        <p>古风历史舆图 · 少年读史</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="switch" id="viewSwitch">
+        <button data-view="world" class="active">世界</button>
+        <button data-view="china">中国</button>
+      </div>
+      <button id="playBtn" class="btn-play">▶ 自动游览</button>
+    </div>
+  </header>
+
+  <!-- ======== 中部：装裱舆图 + 册页 ======== -->
+  <main class="stage">
+    <section class="mount">
+      <div class="map-wrap" id="mapWrap">
+        <svg id="map" preserveAspectRatio="xMidYMid meet">
+          <rect id="paperRect" class="paper" x="-400" y="-300" width="4400" height="2000"/>
+          <rect class="grain" x="-400" y="-300" width="4400" height="2000" filter="url(#fx-grain)"/>
+          <g id="graticule"></g>
+          <g id="landLayer" filter="url(#fx-inkbleed)"></g>
+          <g id="holeLayer"></g>
+          <g id="markerLayer"></g>
+          <g id="ornament"></g>
+          <rect class="vignette" x="-400" y="-300" width="4400" height="2000" fill="url(#grad-vignette)" pointer-events="none"/>
+        </svg>
+
+        <div class="banner" id="banner">
+          <div class="banner-year" id="bannerYear">公元前 221 年</div>
+          <div class="banner-meta" id="bannerMeta">秦 · 古典时代</div>
+        </div>
+
+        <div class="map-ctrl">
+          <button id="zoomIn" title="放大">＋</button>
+          <button id="zoomOut" title="缩小">－</button>
+          <button id="resetView" title="复位">⟲</button>
+        </div>
+
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+    </section>
+
+    <aside class="booklet">
+      <div class="filters">
+        <div class="filter-row" id="regionFilters"></div>
+        <div class="filter-row" id="catFilters"></div>
+        <div class="filter-row minor">
+          <label class="major-toggle"><input type="checkbox" id="majorOnly">只看大事</label>
+          <span id="countInfo"></span>
+        </div>
+      </div>
+      <div class="cards" id="cards"></div>
+    </aside>
+  </main>
+
+  <!-- ======== 底部：卷轴时间轴 ======== -->
+  <footer class="scroll-area">
+    <div class="tl-btns">
+      <button id="prevEvent">◀ 上件大事</button>
+      <button id="nextEvent">下件大事 ▶</button>
+    </div>
+    <div class="scroll-mount">
+      <svg id="timeline"></svg>
+    </div>
+  </footer>
+
+</div>
+
+<!-- 渐变定义 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="grad-vignette" cx="50%" cy="46%" r="72%">
+      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#2e2417" stop-opacity="0.34"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<script src="js/land.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
