@@ -3,6 +3,8 @@
 一个面向未成年人学历史的古风历史事件 GIS：界面如一幅装裱好的古画，
 按年份浏览中国史与世界史事件。
 
+**在线访问**：<https://jerryliuxa.github.io/history/>（GitHub Pages，push 到 main 自动部署）
+
 ## 运行
 
 零构建、零依赖，**直接双击 `index.html`** 即可在浏览器中打开（file:// 可用）。
