@@ -351,6 +351,7 @@ function srcHTML(ev) {
 function cardHTML(ev) {
   var isCN = ev.region === 'china';
   var span = ev.y2 !== undefined ? evDate(ev) + ' — ' + endYear(ev) : evDate(ev);
+  var baike = 'https://baike.baidu.com/search?word=' + encodeURIComponent(ev.bk || ev.title);
   return '<div class="card' + (isCN ? '' : ' world') + (ev.id === state.selectedId ? ' selected' : '') + '" data-id="' + ev.id + '">' +
     '<div class="card-title">' + ev.title + '</div>' +
     '<div class="card-meta">' +
@@ -358,6 +359,7 @@ function cardHTML(ev) {
       '<span>' + span + '</span>' +
       '<span class="m-tag' + (isCN ? '' : ' w') + '">' + REGION_NAMES[ev.region] + '</span>' +
       '<span class="m-tag' + (isCN ? '' : ' w') + '">' + CAT_NAMES[ev.cat] + '</span>' +
+      '<a class="m-tag m-link" href="' + baike + '" target="_blank" rel="noopener" title="在百度百科查看「' + escHtml(ev.title) + '」">百科 ↗</a>' +
     '</div>' +
     '<div class="card-desc">' + ev.desc + '</div>' +
     '<div class="card-tip">' + ev.tip + '</div>' +
@@ -467,6 +469,7 @@ function screenToWorld(mx, my) {
   });
 
   cardsEl.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('a')) return;   // 百科链接不触发选中
     var c = e.target.closest('.card');
     if (c) selectEvent(c.getAttribute('data-id'));
   });

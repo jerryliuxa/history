@@ -544,6 +544,15 @@ body {
   color: var(--indigo);
 }
 
+/* 百度百科链接标签 */
+.card-meta a.m-link { text-decoration: none; color: var(--red-deep); }
+
+.card-meta a.m-link:hover {
+  background: var(--red);
+  border-color: var(--red-deep);
+  color: #f6ecd6;
+}
+
 .card-desc {
   font-size: 13.5px;
   line-height: 1.75;
