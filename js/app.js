@@ -350,7 +350,7 @@ function srcHTML(ev) {
 
 function cardHTML(ev) {
   var isCN = ev.region === 'china';
-  var span = ev.y2 !== undefined ? evDate(ev) + ' — ' + formatYear(ev.y2) : evDate(ev);
+  var span = ev.y2 !== undefined ? evDate(ev) + ' — ' + endYear(ev) : evDate(ev);
   return '<div class="card' + (isCN ? '' : ' world') + (ev.id === state.selectedId ? ' selected' : '') + '" data-id="' + ev.id + '">' +
     '<div class="card-title">' + ev.title + '</div>' +
     '<div class="card-meta">' +
@@ -521,8 +521,17 @@ function evById(id) {
 }
 
 function evDate(ev) {
-  if (!ev.m) return formatYear(ev.y);
-  return formatYear(ev.y).replace(' 年', ' 年 ' + ev.m + ' 月');
+  var about = ev.ab1 ? '约' : '';
+  if (!ev.m) return about + formatYear(ev.y);
+  return about + formatYear(ev.y).replace(' 年', ' 年 ' + ev.m + ' 月');
+}
+
+function endYear(ev) {
+  return (ev.ab2 ? '约' : '') + formatYear(ev.y2);
+}
+
+function lifeSpan(ev) {
+  return (ev.ab1 ? '约' : '') + shortYear(ev.y) + ' — ' + (ev.ab2 ? '约' : '') + shortYear(ev.y2);
 }
 
 function drawTimeline() {
@@ -548,15 +557,26 @@ function drawTimeline() {
     drawBand(gDyn, d.y1, d.y2, 42, 26, DYN_COLORS[i % DYN_COLORS.length], d.n, 26);
   });
 
-  // 事件圆点（有月份的按月偏移；附加透明热区便于悬停/点击）
+  // 事件圆点与人物寿命条（cat='figure' 且有卒年的画寿命条，其余画圆点）
   var gDots = el('g', {}, root);
   EVENTS.forEach(function (ev) {
     var fy = fracYear(ev);
-    if (fy < TL.y1 || fy > TL.y2) return;
+    var fy2 = ev.y2 !== undefined ? ev.y2 : fy;
+    if (fy2 < TL.y1 || fy > TL.y2) return;
+    var color = ev.region === 'china' ? DOT_COLOR.china : DOT_COLOR.other;
+    if (ev.cat === 'figure' && ev.y2 !== undefined) {
+      var bx1 = Math.max(tlX(fy), TL.pad), bx2 = Math.min(tlX(ev.y2), TL.pad + TL.innerW);
+      if (bx2 - bx1 < 1) return;
+      el('rect', { x: bx1, y: 78, width: bx2 - bx1, height: 4, rx: 2, fill: color,
+                   opacity: 0.5, class: 'tl-figbar', 'data-id': ev.id }, gDots);
+      el('rect', { x: bx1 - 2, y: 74, width: Math.max(bx2 - bx1 + 4, 6), height: 12,
+                   fill: 'transparent', class: 'tl-hitf', 'data-id': ev.id }, gDots);
+      return;
+    }
     var x = tlX(fy);
     if (x < TL.pad - 4 || x > TL.pad + TL.innerW + 4) return;
     el('circle', { cx: x, cy: 80, r: ev.imp === 3 ? 3 : 2.2,
-                   fill: ev.region === 'china' ? DOT_COLOR.china : DOT_COLOR.other,
+                   fill: color,
                    opacity: 0.45, class: 'tl-dot', 'data-id': ev.id }, gDots);
     el('circle', { cx: x, cy: 80, r: 7, fill: 'transparent', class: 'tl-hit', 'data-id': ev.id }, gDots);
   });
@@ -644,7 +664,7 @@ function updateTimelineCursor(vis) {
   TL.cursorBox.setAttribute('x', bx);
   TL.cursorText.setAttribute('x', bx + 33);
   TL.cursorText.textContent = shortYear(Math.round(state.year));
-  // 点亮当前可见的事件点
+  // 点亮当前可见的事件点与人物寿命条
   var visIds = {};
   for (var v = 0; v < vis.length; v++) visIds[vis[v].id] = true;
   var dots = timelineSvg.querySelectorAll('.tl-dot');
@@ -652,6 +672,13 @@ function updateTimelineCursor(vis) {
     var on = !!visIds[dots[i].getAttribute('data-id')];
     dots[i].setAttribute('opacity', on ? 1 : 0.3);
     dots[i].setAttribute('r', on ? 3.4 : 2.2);
+  }
+  var bars = timelineSvg.querySelectorAll('.tl-figbar');
+  for (var b = 0; b < bars.length; b++) {
+    var onb = !!visIds[bars[b].getAttribute('data-id')];
+    bars[b].setAttribute('opacity', onb ? 0.95 : 0.3);
+    bars[b].setAttribute('height', onb ? 6 : 4);
+    bars[b].setAttribute('y', onb ? 77 : 78);
   }
 }
 
@@ -699,16 +726,17 @@ function ensureTlTip() {
 }
 function hideTlTip() { if (tlTip) tlTip.classList.remove('show'); }
 function tlHover(e) {
-  var hit = e.target.closest ? e.target.closest('.tl-hit') : null;
+  var hit = e.target.closest ? (e.target.closest('.tl-hit') || e.target.closest('.tl-hitf')) : null;
   if (!hit) { hideTlTip(); return; }
   var ev = evById(hit.getAttribute('data-id'));
   if (!ev) return;
   var tip = ensureTlTip();
   var sr = timelineSvg.getBoundingClientRect();
   var mr = timelineSvg.parentNode.getBoundingClientRect();
-  var x = sr.left - mr.left + parseFloat(hit.getAttribute('cx'));
+  var x = sr.left - mr.left + parseFloat(hit.getAttribute('cx') || hit.getAttribute('x')) + (hit.classList.contains('tl-hitf') ? parseFloat(hit.getAttribute('width')) / 2 : 0);
   var y = sr.top - mr.top + 80;
-  tip.innerHTML = '<b>' + ev.title + '</b><span>' + evDate(ev) + ' · ' + ev.tag + '</span>';
+  var life = (ev.cat === 'figure' && ev.y2 !== undefined) ? lifeSpan(ev) : evDate(ev);
+  tip.innerHTML = '<b>' + ev.title + '</b><span>' + life + ' · ' + ev.tag + '</span>';
   tip.style.left = x + 'px';
   tip.style.top = (y - 9) + 'px';
   tip.classList.add('show');
@@ -728,7 +756,7 @@ function tlReset() { TL.y1 = YEAR_MIN; TL.y2 = YEAR_MAX; drawTimeline(); hideTlT
   timelineSvg.addEventListener('pointerdown', function (e) {
     var r = timelineSvg.getBoundingClientRect();
     var x = e.clientX - r.left, y = e.clientY - r.top;
-    downHit = e.target.closest ? e.target.closest('.tl-hit') : null;
+    downHit = e.target.closest ? (e.target.closest('.tl-hit') || e.target.closest('.tl-hitf')) : null;
     mode = inHandle(x, y) ? 'scrub' : 'pan';
     moved = 0; sx = e.clientX; lastX = x;
     try { timelineSvg.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件等无活动指针时忽略 */ }
@@ -872,7 +900,8 @@ function searchHay() {
       return {
         ev: ev,
         dense: (ev.title + ev.desc + ev.tip + ev.tag + (REGION_NAMES[ev.region] || '') +
-                formatYear(ev.y) + shortYear(ev.y) + (ev.y < 0 ? '前' + (-ev.y) : '')).replace(/\s+/g, '')
+                formatYear(ev.y) + shortYear(ev.y) + (ev.y < 0 ? '前' + (-ev.y) : '') +
+                (ev.y2 !== undefined ? shortYear(ev.y2) : '')).replace(/\s+/g, '')
       };
     });
   }
@@ -972,9 +1001,12 @@ function doSearch(raw) {
   events.slice(0, 15).forEach(function (h) {
     var idx = searchItems.length;
     searchItems.push({ kind: 'event', ev: h.ev });
+    var meta = (h.ev.cat === 'figure' && h.ev.y2 !== undefined)
+      ? lifeSpan(h.ev) + ' · ' + (CAT_NAMES[h.ev.cat] || '') + ' · ' + h.ev.tag
+      : evDate(h.ev) + ' · ' + h.ev.tag + ' · ' + (REGION_NAMES[h.ev.region] || '');
     html += '<div class="search-item" data-i="' + idx + '">' +
       '<div class="si-title">' + hlTitle(h.ev.title, tokens) + '</div>' +
-      '<div class="si-meta">' + evDate(h.ev) + ' · ' + escHtml(h.ev.tag) + ' · ' + (REGION_NAMES[h.ev.region] || '') + '</div>' +
+      '<div class="si-meta">' + meta + '</div>' +
       '<div class="si-desc">' + escHtml(h.ev.desc) + '</div></div>';
   });
   if (!searchItems.length) html = '<div class="search-none">未找到相关的事件、年份或朝代</div>';

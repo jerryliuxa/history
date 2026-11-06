@@ -21,8 +21,8 @@ var REGION_NAMES = {
 };
 
 var CAT_NAMES = {
-  politics: '政治', war: '战争', culture: '文化',
-  tech: '科技', economy: '经济', figure: '人物'
+  figure: '人物', politics: '政治', war: '战争', culture: '文化',
+  tech: '科技', economy: '经济'
 };
 
 /* 中国朝代带（示意分段，个别朝代间存在交叉重叠） */
