@@ -21,6 +21,7 @@ def main():
     css = read("css", "style.css")
     land = read("js", "land.js")
     data = read("js", "data.js")
+    data_extra = read("js", "data-extra.js")
     sources = read("js", "sources.js")
     app = read("js", "app.js")
 
@@ -31,6 +32,8 @@ def main():
                   lambda _: "<script>\n" + land + "\n</script>", html)
     html = re.sub(r'<script src="js/data\.js[^"]*"></script>',
                   lambda _: "<script>\n" + data + "\n</script>", html)
+    html = re.sub(r'<script src="js/data-extra\.js[^"]*"></script>',
+                  lambda _: "<script>\n" + data_extra + "\n</script>", html)
     html = re.sub(r'<script src="js/sources\.js[^"]*"></script>',
                   lambda _: "<script>\n" + sources + "\n</script>", html)
     html = re.sub(r'<script src="js/app\.js[^"]*"></script>',
